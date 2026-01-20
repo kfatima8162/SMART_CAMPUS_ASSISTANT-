@@ -23,7 +23,6 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ reply: "Question is required" });
     }
 
-    // STRICT PROMPT (Very Important)
     const prompt = `
 You are a college information chatbot.
 
@@ -39,7 +38,7 @@ ${question}
 `;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,26 +52,30 @@ ${question}
       }
     );
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini API Error:", errorText);
+      return res.status(500).json({ reply: "Gemini API error" });
+    }
+
     const data = await response.json();
 
     const reply =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response";
+      data.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "I don't have information about that.";
 
     res.json({ reply });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ reply: "Server error" });
+    console.error("Server Error:", error.message);
+    res.status(500).json({ reply: "Server error occurred" });
   }
+});
+
+app.get("/", (req, res) => {
+  res.send("Smart Campus Assistant Backend is running 🚀");
 });
 
 app.listen(5000, () => {
   console.log("Server running on http://localhost:5000");
 });
-app.get("/", (req, res) => {
-  res.send("Smart Campus Assistant Backend is running 🚀");
-});
-
-
-
