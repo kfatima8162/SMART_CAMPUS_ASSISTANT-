@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
-import { SendIcon, BotIcon, UserIcon, Pencil, Copy } from "lucide-react";
+import { SendIcon, UserIcon, Pencil, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "../components/Sidebar";
 import { SuggestedQuestions } from "../components/SuggestedQuestions";
+import CollegeLogo from "../assets/logo.png";
 
 interface Message {
   id: string;
@@ -12,15 +13,24 @@ interface Message {
   isEditing?: boolean;
 }
 
-export function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
+interface ChatPageProps {
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  clearMessages: () => void;
+}
+
+export function ChatPage({ messages, setMessages, clearMessages }: ChatPageProps) {
+
+  useEffect(() => {
+  if (messages.length === 0) {
+    setMessages([{
       id: "1",
       text: "Hello! I am Smart College Assistant. How can I help you?",
       sender: "assistant",
       timestamp: new Date()
-    }
-  ]);
+    }]);
+  }
+}, []);
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -42,15 +52,60 @@ export function ChatPage() {
     const messageText = text || input;
     if (!messageText.trim()) return;
 
-    // Remove old reply if editing
-    if (editingId) {
-      setMessages(prev =>
-        prev.filter(
-          m => m.id !== editingId && m.id !== `${editingId}-reply`
-        )
-      );
-      setEditingId(null);
-    }
+if (editingId) {
+  const editedId = editingId;
+  setEditingId(null);
+
+  // 1️⃣ Update user message text
+  setMessages(prev =>
+    prev
+      .map(m =>
+        m.id === editedId
+          ? { ...m, text: messageText, isEditing: false }
+          : m
+      )
+      // 2️⃣ Remove only its assistant reply
+      .filter(m => m.id !== `${editedId}-reply`)
+  );
+
+  setIsTyping(true);
+
+  try {
+    const res = await fetch("http://localhost:5000/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: messageText })
+    });
+
+    const data = await res.json();
+
+    // 3️⃣ Append new assistant reply
+    setMessages(prev => [
+      ...prev,
+      {
+        id: `${editedId}-reply`,
+        text: data.reply || "No response received.",
+        sender: "assistant",
+        timestamp: new Date()
+      }
+    ]);
+  } catch {
+    setMessages(prev => [
+      ...prev,
+      {
+        id: `${editedId}-reply`,
+        text: "⚠️ Unable to reach AI server.",
+        sender: "assistant",
+        timestamp: new Date()
+      }
+    ]);
+  } finally {
+    setIsTyping(false);
+  }
+
+  return; // ⛔ STOP normal send flow
+}
+
 
     const userId = Date.now().toString();
 
@@ -66,10 +121,9 @@ export function ChatPage() {
 
     setInput("");
     setIsTyping(true);
-    console.log("API URL:", import.meta.env.VITE_API_BASE_URL);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat`, {
+      const res = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: messageText })
@@ -107,10 +161,27 @@ export function ChatPage() {
       handleSend();
     }
   };
+  // Clear messages for a new chat
+const handleNewChat = () => {
+  setMessages([
+    {
+      id: Date.now().toString(),
+      text: "Hello! I am Smart College Assistant. How can I help you?",
+      sender: "assistant",
+      timestamp: new Date(),
+    }
+  ]);
+};
+
+// Keep messages as is to show existing chat
+const handleShowChat = () => {
+  // No change needed, just keeps the current messages
+};
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar />
+    <div className="flex h-screen bg-white dark:bg-slate-900">
+      <Sidebar onNewChat={handleNewChat} onShowChat={handleShowChat} />
+
 
       <div className="flex-1 flex flex-col">
         {/* Messages */}
@@ -142,7 +213,11 @@ export function ChatPage() {
                     {message.sender === "user" ? (
                       <UserIcon className="w-5 h-5 text-white" />
                     ) : (
-                      <BotIcon className="w-5 h-5 text-white" />
+                      <img
+                        src={CollegeLogo}
+                        alt="College Logo"
+                        className="w-full h-full object-cover"
+                      />
                     )}
                   </div>
 
@@ -150,19 +225,25 @@ export function ChatPage() {
                     <div
                       className={`rounded-2xl px-5 py-3 ${
                         message.sender === "user"
-                          ? "bg-slate-700 text-white ml-auto"
-                          : "bg-white border border-slate-200"
+                          ? "bg-blue-100 text-slate-900 ml-auto dark:bg-slate-700 dark:text-white"
+                          : "bg-white dark:bg-slate-800 dark:border-slate-700 border border-slate-200"
                       }`}
                     >
                       {message.isEditing ? (
                         <input
                           value={editText}
                           onChange={e => setEditText(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSend(editText);
+                            }
+                          }}
                           className="w-full px-3 py-2 rounded-lg text-sm text-slate-800"
                           autoFocus
                         />
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap">
+                        <p className="text-sm whitespace-pre-wrap text-slate-900 dark:text-slate-100">
                           {message.text}
                         </p>
                       )}
@@ -202,7 +283,7 @@ export function ChatPage() {
                       </div>
                     </div>
 
-                    <span className="text-xs text-slate-500 mt-1 block">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
                       {message.timestamp.toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit"
@@ -215,11 +296,15 @@ export function ChatPage() {
 
             {isTyping && (
               <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
-                  <BotIcon className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-white">
+                  <img
+                    src={CollegeLogo}
+                    alt="College Logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3">
-                  <span className="text-sm text-slate-500">
+                <div className="bg-white dark:bg-slate-800 dark:border-slate-700 border border-slate-200 rounded-2xl px-5 py-3">
+                  <span className="text-sm text-slate-500 dark:text-slate-300">
                     Assistant is typing...
                   </span>
                 </div>
@@ -231,14 +316,17 @@ export function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t bg-white p-4">
+        <div className="border-t bg-white dark:bg-slate-800 p-4">
           <div className="max-w-3xl mx-auto flex gap-3">
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask anything about the college..."
-              className="flex-1 px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-3 rounded-xl border bg-white dark:bg-slate-700
+             text-slate-900 dark:text-white placeholder-slate-400
+             dark:placeholder-slate-300
+             focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={() => handleSend()}
