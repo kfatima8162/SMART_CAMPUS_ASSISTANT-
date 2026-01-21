@@ -1,10 +1,10 @@
-import React from 'react';
+// import React from 'react';
 import { motion } from 'framer-motion';
 import { SparklesIcon } from 'lucide-react';
 interface SuggestedQuestionsProps {
   onSelectQuestion: (question: string) => void;
 }
-const questions = ['name?', 'motto?', 'campus?', 'Approved By?', 'Affiliated To?', 'Location?'];
+const questions = ["What are the college's admission requirements?", "How do I apply for financial aid or scholarships?", "What courses are offered in SSIPMT?", "What are the hostel facilities like?", "How do I contact the placement cell or career services?"];
 export function SuggestedQuestions({
   onSelectQuestion
 }: SuggestedQuestionsProps) {
