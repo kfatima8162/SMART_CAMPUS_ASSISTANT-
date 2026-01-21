@@ -4,7 +4,10 @@ import App from "./App";
 import "./index.css";
 import { ThemeProvider } from "./context/ThemeContext";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+const root = ReactDOM.createRoot(document.getElementById("root")!);
+
+// ✅ Wrap App in ThemeProvider (already done)
+root.render(
   <React.StrictMode>
     <ThemeProvider>
       <App />
