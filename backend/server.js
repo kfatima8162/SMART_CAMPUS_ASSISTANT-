@@ -23,20 +23,12 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ reply: "Question is required" });
     }
 
-    // STRICT PROMPT (Very Important)
-const prompt = `
-You are a Smart College Assistant for SSIPMT.
+    const prompt = `
+You are a college information chatbot.
 
-PRIMARY RULE:
-- First, try to answer strictly using the COLLEGE DATA below.
-
-SECONDARY RULE:
-- If the exact answer is not found, give the closest helpful answer
-  based on general college knowledge.
-- Clearly mention when the answer is approximate.
-
-LANGUAGE:
-- Reply in the same language as the question (English or Hindi).
+Answer ONLY using the information provided below.
+If the answer is not in the data, say:
+"I don't have information about that."
 
 COLLEGE DATA:
 ${collegeData}
@@ -44,7 +36,6 @@ ${collegeData}
 QUESTION:
 ${question}
 `;
-
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -61,30 +52,30 @@ ${question}
       }
     );
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini API Error:", errorText);
+      return res.status(500).json({ reply: "Gemini API error" });
+    }
+
     const data = await response.json();
-    console.log("Gemini raw response:", JSON.stringify(data, null, 2));
 
-    let reply = "No response";
-
-if (data.candidates && data.candidates.length > 0) {
-  reply = data.candidates[0]?.content?.parts?.[0]?.text || "No response";
-} else if (data.promptFeedback?.blockReason) {
-  reply = "⚠️ AI temporarily unavailable. Please try again.";
-}
-
+    const reply =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "I don't have information about that.";
 
     res.json({ reply });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ reply: "Server error" });
+    console.error("Server Error:", error.message);
+    res.status(500).json({ reply: "Server error occurred" });
   }
+});
+
+app.get("/", (req, res) => {
+  res.send("Smart Campus Assistant Backend is running 🚀");
 });
 
 app.listen(5000, () => {
   console.log("Server running on http://localhost:5000");
 });
-app.get("/", (req, res) => {
-  res.send("Smart Campus Assistant Backend is running 🚀");
-});
-
